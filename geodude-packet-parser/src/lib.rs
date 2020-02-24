@@ -1,3 +1,8 @@
+#[macro_use]
+extern crate serde_derive;
+extern crate wasm_bindgen;
+use wasm_bindgen::prelude::*;
+
 use byteorder::{ByteOrder, LittleEndian};
 use core::slice;
 use cty;
@@ -5,12 +10,14 @@ use cty;
 const SAMPLE_MAX_SIZE: usize = 20;
 const PACKETS_MAX_SIZE: usize = 50;
 
+#[derive(Serialize)]
 struct Packet {
     timestamp: u32,
     stream_id: u32,
     sample: Vec<u8>,
 }
 
+#[derive(Serialize)]
 struct ParserResult {
     packets: Vec<Packet>,
     remaining: u32,
@@ -64,6 +71,14 @@ pub extern "C" fn C_parse_packet(bytes: *mut cty::uint8_t, bytes_len: cty::uint1
     };
     0
 }
+
+#[wasm_bindgen]
+pub fn js_parse_packet(bytes: &JsValue) -> JsValue {
+    let bytes: Vec<u8> = bytes.into_serde().unwrap();
+    let result = parse_packet(&bytes).unwrap();
+    JsValue::from_serde(&result).unwrap()
+}
+
 
 fn parse_packet(bytes: &[u8]) -> Result<ParserResult, &'static str> {
     let mut res = ParserResult {

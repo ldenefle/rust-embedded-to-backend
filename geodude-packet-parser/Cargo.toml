@@ -6,13 +6,18 @@ edition = "2018"
 
 [lib]
 name = "parser"
-crate-type = ["staticlib"] # Creates static lib
+crate-type = ["cdylib", "staticlib"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 byteorder = { version = "1", default-features = false }
 cty = "*"
+serde = "^1.0.59"
+serde_derive = "^1.0.59"
+
+[dependencies.wasm-bindgen]
+version = "^0.2"
+features = ["serde-serialize"]
 
 [target.thumbv7em-none-eabihf.dependencies]
 panic-halt = "0.2.0"
