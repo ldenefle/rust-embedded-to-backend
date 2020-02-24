@@ -1,7 +1,11 @@
 RUST_PKG_PATH = geodude-packet-parser/pkg
 RUST_LIB_PATH = geodude-packet-parser/target/debug/libparser.a
 
-.PHONY: run_c run_js clean
+.PHONY: run_c run_js run_rust clean
+
+run_rust:
+	cd geodude-packet-parser; cargo test
+
 run_c: rust_lib
 	gcc c/main.c $(RUST_LIB_PATH) -o c/output && c/output
 
