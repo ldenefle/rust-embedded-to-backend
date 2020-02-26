@@ -1,0 +1,13 @@
+[package]
+name = "geodude-packet-parser-c"
+version = "0.1.0"
+authors = ["Lucas Denefle <lucas.denefle@converge.io>"]
+edition = "2018"
+
+[lib]
+name = "parser"
+crate-type = ["staticlib"]
+
+[dependencies]
+cty = "*"
+parser = { version = "0.1.0", default-features = false, path = "../lib-parser" }
