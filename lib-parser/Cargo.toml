@@ -1,0 +1,18 @@
+[package]
+name = "parser"
+version = "0.1.0"
+authors = ["Lucas Denefle <lucas.denefle@converge.io>"]
+edition = "2018"
+
+[features]
+default = [ "std", "serialize"]
+
+std = []
+serialize = ["serde", "serde_derive"]
+
+[dependencies]
+byteorder = { version = "1", default-features = false }
+cty = "*"
+heapless = "*"
+serde = { version = "*", optional = true }
+serde_derive = { version = "*", optional = true }

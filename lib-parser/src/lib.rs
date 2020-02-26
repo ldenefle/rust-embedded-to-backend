@@ -1,94 +1,39 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(not(feature = "std"))]
+extern crate heapless;
+#[cfg(not(feature = "std"))]
+use heapless::consts::*;
+#[cfg(not(feature = "std"))]
+use heapless::Vec;
+
+#[cfg(feature = "serialize")]
 #[macro_use]
+#[cfg(feature = "serialize")]
 extern crate serde_derive;
-extern crate wasm_bindgen;
-use wasm_bindgen::prelude::*;
+
+#[cfg_attr(feature = "serialize", derive(Serialize))]
+pub struct Packet {
+    pub timestamp: u32,
+    pub stream_id: u32,
+    #[cfg(not(feature = "std"))]
+    pub sample: Vec<u8, U20>,
+    #[cfg(feature = "std")]
+    pub sample: Vec<u8>,
+}
+
+#[cfg_attr(feature = "serialize", derive(Serialize))]
+pub struct ParserResult {
+    #[cfg(not(feature = "std"))]
+    pub packets: Vec<Packet, U50>,
+    #[cfg(feature = "std")]
+    pub packets: Vec<Packet>,
+    pub remaining: u32,
+}
 
 use byteorder::{ByteOrder, LittleEndian};
-use core::slice;
-use cty;
 
-const SAMPLE_MAX_SIZE: usize = 20;
-const PACKETS_MAX_SIZE: usize = 50;
-
-#[derive(Serialize)]
-struct Packet {
-    timestamp: u32,
-    stream_id: u32,
-    sample: Vec<u8>,
-}
-
-#[derive(Serialize)]
-struct ParserResult {
-    packets: Vec<Packet>,
-    remaining: u32,
-}
-
-#[repr(C)]
-pub struct CPacket {
-    pub timestamp: cty::uint32_t,
-    pub stream_id: cty::uint32_t,
-    pub sample_len: cty::uint16_t,
-    pub sample: [cty::uint8_t; SAMPLE_MAX_SIZE],
-}
-
-#[repr(C)]
-pub struct CParserResult {
-    pub packets: [CPacket; PACKETS_MAX_SIZE],
-    pub packets_len: cty::uint16_t,
-    pub remaining: cty::uint32_t,
-}
-
-#[no_mangle]
-pub extern "C" fn C_parse_packet(
-    bytes: *mut cty::uint8_t,
-    bytes_len: cty::uint16_t,
-    result: *mut CParserResult,
-) -> cty::c_int {
-    // Check that we don't get null pointers
-    if result.is_null() || bytes.is_null() {
-        return -1;
-    }
-
-    unsafe {
-        let bytes: &[u8] = slice::from_raw_parts(bytes, bytes_len as usize);
-        let parser_result = match parse_packet(bytes) {
-            Ok(res) => res,
-            Err(_) => return -1,
-        };
-        // Copy the remaining packets number
-        (*result).remaining = parser_result.remaining as cty::uint32_t;
-        (*result).packets_len = parser_result.packets.len() as cty::uint16_t;
-        // Copy the packets
-        parser_result
-            .packets
-            .iter()
-            .map(|y| {
-                let mut ret = CPacket {
-                    timestamp: y.timestamp as cty::uint32_t,
-                    stream_id: y.stream_id as cty::uint32_t,
-                    sample_len: y.sample.len() as cty::uint16_t,
-                    sample: [0; 20],
-                };
-                y.sample
-                    .iter()
-                    .enumerate()
-                    .for_each(|(i, val)| ret.sample[i] = *val);
-                ret
-            })
-            .enumerate()
-            .for_each(|(i, val)| (*result).packets[i] = val);
-    };
-    0
-}
-
-#[wasm_bindgen]
-pub fn js_parse_packet(bytes: &JsValue) -> JsValue {
-    let bytes: Vec<u8> = bytes.into_serde().unwrap();
-    let result = parse_packet(&bytes).unwrap();
-    JsValue::from_serde(&result).unwrap()
-}
-
-fn parse_packet(bytes: &[u8]) -> Result<ParserResult, &'static str> {
+pub fn parse_packet(bytes: &[u8]) -> Result<ParserResult, &'static str> {
     let mut res = ParserResult {
         packets: Vec::new(),
         remaining: 0,
@@ -107,11 +52,17 @@ fn parse_packet(bytes: &[u8]) -> Result<ParserResult, &'static str> {
         if packet_size + i > bytes.len() {
             break;
         }
-        let packet = Packet {
+        let mut packet = Packet {
             timestamp: LittleEndian::read_u32(&bytes[i + 1..i + 5]),
             stream_id: LittleEndian::read_u32(&bytes[i + 5..i + 9]),
+            #[cfg(not(feature = "std"))]
+            sample: Vec::new(),
+            #[cfg(feature = "std")]
             sample: bytes[i + 9..i + packet_size + 1].to_vec(),
         };
+
+        #[cfg(not(feature = "std"))]
+        packet.sample.extend_from_slice(&bytes[i + 9..i + packet_size + 1]).unwrap();
 
         res.packets.push(packet);
         i += packet_size + 1;
@@ -120,6 +71,7 @@ fn parse_packet(bytes: &[u8]) -> Result<ParserResult, &'static str> {
     Ok(res)
 }
 
+#[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
     use super::*;
